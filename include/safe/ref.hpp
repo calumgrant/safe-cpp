@@ -9,7 +9,8 @@ public:
   using value_type = T;
   using lifetime_type = detail::lifetime<Mode>;
 
-  // exclusive(ref<T, Mode> &&src) : value(*src), life(src.lifetime()) {}
+  exclusive(ref<T, Mode> &&src)
+      : value(*src), life(src.lifetime(), detail::move_tag()) {}
 
   exclusive(value_type &t, lifetime_type &life) : value(t), life(life) {}
 

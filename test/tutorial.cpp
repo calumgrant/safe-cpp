@@ -311,11 +311,11 @@ int main() {
   }
 
   THROWS(*p1); // p1 is nullptr
-  // p1 = &i;
-  // *p1 = 42;
+  p1 = &i;
+  *p1 = 42;
 
   // You can access members of a pointer using ->
-  // (&o)->name1 = "Agnes";
+  (&o)->name1 = "Agnes";
 
   // Dangling pointers
   {

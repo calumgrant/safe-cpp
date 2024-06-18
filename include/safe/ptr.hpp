@@ -41,7 +41,7 @@ public:
 
   operator bool() const { return value.has_value(); }
 
-  // exclusive<T, Mode> operator->() { return **this; }
+  exclusive<T, Mode> operator->() { return **this; }
 
 private:
   std::optional<ref<T, Mode>> value;

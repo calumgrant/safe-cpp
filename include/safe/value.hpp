@@ -70,28 +70,4 @@ protected:
   mutable lifetime_type life;
 };
 
-template <typename T, typename Mode> class shared {
-public:
-  using value_type = T;
-
-  template <typename... Args>
-  shared(Args &&...args) : value(std::forward<Args>(args)...) {}
-
-  template <typename U> shared &operator=(U &&v) {
-    *write() = v;
-    return *this;
-  }
-
-  // TODO: Copy constructors & assignments
-
-  ref<T, Mode> write() { return {value, life}; }
-  ref<const T, Mode> read() const { return {value, life}; }
-
-  exclusive<T, Mode> operator*() { return {value, life}; }
-
-private:
-  value_type value;
-  detail::lifetime_ref<Mode> life;
-};
-
 } // namespace safe
