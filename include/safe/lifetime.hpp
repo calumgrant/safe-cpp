@@ -13,6 +13,8 @@ template <> struct lifetime<unchecked> {
 
   void terminate_if_live() const {}
   void check_no_readers() const {}
+
+  lifetime &get_lifetime() { return *this; }
 };
 
 template <> struct lifetime<checked> {
@@ -34,6 +36,16 @@ template <> struct lifetime<checked> {
   }
 
   ~lifetime() { terminate_if_live(); }
+
+  lifetime<checked> &get_lifetime() { return *this; }
+};
+
+template <> struct lifetime<weak> {
+  lifetime() : life(new lifetime<checked>()) {}
+
+  lifetime<checked> *life;
+
+  lifetime<checked> &get_lifetime() { return *life; }
 };
 
 template <typename Mode> class lifetime_ref;
@@ -42,6 +54,7 @@ template <> class lifetime_ref<checked> {
 public:
   lifetime_ref() : life(new detail::lifetime<checked>) {}
   lifetime_ref(lifetime<checked> &life) : life(&life) { life.weak_count++; }
+  lifetime_ref(lifetime<weak> &life) : life(life.life) {}
   ~lifetime_ref() {
     if (!--life->weak_count) {
       delete life;
@@ -59,14 +72,12 @@ protected:
 template <> class lifetime_ref<unchecked> {
 public:
   lifetime_ref() {}
-  lifetime_ref(lifetime<unchecked> life) {}
   detail::lifetime<unchecked> &lifetime() const { return life; }
 
 private:
   mutable detail::lifetime<unchecked> life;
 };
 
-#if 0
 template <typename Mode> class optional_lifetime_ptr;
 
 template <> class optional_lifetime_ptr<checked> {
@@ -120,6 +131,5 @@ public:
 private:
   detail::lifetime<checked> *life;
 };
-#endif
 } // namespace detail
 } // namespace safe

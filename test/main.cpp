@@ -409,5 +409,15 @@ int main() {
     fn(str.write().read());
   }
 
+  // Weak references
+
+  {
+    value<int, weak> a;
+    a.read();
+    a.write();
+    // !! Bug: pointers shouldn't borrow
+    auto p1 = &a;
+    a.write();
+  }
   return 0;
 }

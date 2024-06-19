@@ -1,50 +1,30 @@
 #pragma once
 #include "fwd.hpp"
-#include <optional>
 
 namespace safe
 {
 template <typename T, typename Mode> class ptr {
 public:
   using value_type = T;
+  using lifetime_type = detail::lifetime<Mode>;
 
   ref<T, Mode> operator*() const {
     if (!value)
       throw null_pointer();
-    return *value;
+    return {*value, life.lifetime()};
   }
 
-  ptr() = default;
-  ptr(nullptr_t) {}
+  ptr() : value{} {};
+  ptr(nullptr_t) : ptr() {}
+  ptr(value_type &value, lifetime_type &life) : value(&value), life(life) {}
 
-  ptr(ref<T, Mode> &&r) : value(std::move(r)) {}
-  ptr(const ref<T, Mode> &r) : value(r) {}
+  operator bool() const { return value; }
 
-  ptr & operator=(const ptr &other) {
-    if(this != &other)
-    {
-      value.reset();
-      value = other.value;
-    }
-    return *this;
-  }
-
-  ptr & operator=(ptr &&other) {
-    if(this != &other)
-    {
-      value.reset();
-      value = std::move(other.value);
-    }
-    return *this;
-  }
-
-
-  operator bool() const { return value.has_value(); }
-
-  exclusive<T, Mode> operator->() { return **this; }
+  ref<T, Mode> operator->() { return **this; }
 
 private:
-  std::optional<ref<T, Mode>> value;
+  T *value;
+  detail::optional_lifetime_ptr<Mode> life;
 };
 
 }

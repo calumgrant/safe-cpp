@@ -12,33 +12,44 @@
 
 namespace safe {
 
+template <typename T> struct mode_type {
+  using type = T;
+};
+
+template <> struct mode_type<weak> {
+  using type = mode;
+};
 
 template <typename T, typename Mode> class value {
 public:
   using value_type = T;
   using lifetime_type = detail::lifetime<Mode>;
+  using mode = typename mode_type<Mode>::type;
 
   template <typename U> value(const value<U, Mode> &src) : value(*src.read()) {}
 
   template <typename U>
-  value(value<U, Mode> &&src) : value(std::move(*src.read())) {}
+  value(value<U, mode> &&src) : value(std::move(*src.read())) {}
 
   template <typename... Args>
   value(Args &&...args) : _value(std::forward<Args>(args)...) {}
 
   value(T&&src) : _value(std::move(src)) {}
 
-  ref<const T, Mode> read() const { return {_value, life}; }
-  ref<T, Mode> write() { return {_value, life}; }
+  ref<const T, mode> read() const { return {_value, life.get_lifetime()}; }
+  ref<T, mode> write() { return {_value, life.get_lifetime()}; }
 
-  ref<const T, Mode> operator*() const { return read(); }
-  ref<const T, Mode> operator->() const { return read(); }
+  ref<const T, mode> operator*() const { return read(); }
+  ref<const T, mode> operator->() const { return read(); }
 
-  ref<T, Mode> operator*() { return write(); }
-  ref<T, Mode> operator->() { return write(); }
+  ref<T, mode> operator*() { return write(); }
+  ref<T, mode> operator->() { return write(); }
 
-  ptr<T, Mode> operator&() { return write(); }
-  ptr<const T, Mode> operator&() const { return read(); }
+  ptr<T, mode> operator&() { return {_value, life.get_lifetime()}; }
+  ptr<const T, mode> operator&() const {
+    return {_value, life.lifetime()};
+    ;
+  }
 
   // value_type &unsafe_read() { return _value; }
   // const value_type &unsafe_read() const { return _value; }

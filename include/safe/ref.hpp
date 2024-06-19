@@ -9,6 +9,7 @@ public:
   using value_type = T;
   using lifetime_type = detail::lifetime<Mode>;
 
+  // !! Not used?
   exclusive(ref<T, Mode> &&src)
       : value(*src), life(src.lifetime(), detail::move_tag()) {}
 
@@ -106,7 +107,7 @@ public:
   const value_type &operator*() const { return value; }
   const value_type *operator->() const { return &value; }
 
-  ptr<const T, Mode> operator&() const { return *this; }
+  ptr<const T, Mode> operator&() const { return {value, lifetime()}; }
 
   operator const value_type &() const { return value; }
 
