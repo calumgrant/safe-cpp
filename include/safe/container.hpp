@@ -54,6 +54,12 @@ struct iterator_checks<Container, checked, std::random_access_iterator_tag> {
     if (it == container.end())
       throw std::out_of_range("out of range");
   }
+
+  static void check_range(const Container &container,
+                          const typename Container::const_iterator &it) {
+    if (it < container.begin() || it > container.end())
+      throw std::out_of_range("out of range");
+  }
 };
 
 template <typename C, typename Mode> class container_impl {
@@ -81,6 +87,13 @@ public:
       return {*it, container->element_access};
     }
 
+    ValueRef operator[](int i) {
+      if (!container)
+        throw std::out_of_range("uninitialized iterator");
+      checks::check_deref(container->container, it + i);
+      return {it[i], container->element_access};
+    }
+
     bool operator!=(const iterator_impl &other) const { return it != other.it; }
 
     iterator_impl &operator++() {
@@ -99,7 +112,19 @@ public:
       return *this;
     }
 
-    // TODO: add and subtract 
+    iterator_impl operator+(int n) {
+      if (!container)
+        throw std::out_of_range("uninitialized iterator");
+      checks::check_range(container->container, it + n);
+      return {it + n, container, container_lock.lifetime()};
+    }
+
+    iterator_impl operator-(int n) {
+      if (!container)
+        throw std::out_of_range("uninitialized iterator");
+      checks::check_range(container->container, it - n);
+      return {it - n, container, container_lock.lifetime()};
+    }
 
   private:
     It it;

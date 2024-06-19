@@ -7,21 +7,9 @@
 #include "safe/value.hpp"
 #include "safe/vector.hpp"
 
+#include "throws.hpp"
 #include <iostream>
 #include <list>
-
-template <typename Ex = std::exception, typename Fn> void throws(Fn f) {
-  try {
-    f();
-  } catch (const Ex &e) {
-    return;
-  }
-  std::cerr << "Expected exception not thrown" << std::endl;
-  exit(1);
-}
-
-#define THROWS(X) throws([&]() { X; });
-#define TERMINATES(X)
 
 using namespace safe;
 
@@ -41,7 +29,7 @@ int main() {
   // 1.1. Creating safe values
 
   // Create a stack-allocated safe value o.
-  value<MyObject> o = MyObject{"Alice", "Bob"};
+  value<MyObject> o;
 
   // Create a stack-allocated integer
   value<int> i = 42;
@@ -73,13 +61,12 @@ int main() {
   {
     // A mutable reference has the type ref<T>.
     // A mutable reference allows the referenced value to be modified.
-    // It is analagous to `MyObject&w`, and must be initialized.
     ref<MyObject> w1{o};
     ref<int> w2{i};
 
     // You can modify the underlying object
-    w2 = 35;
     w1 = MyObject{"Charlie", "David"};
+    w2 = 35;
 
     // You can access fields of a reference using ->
     w1->name1 = "Eve";
@@ -91,7 +78,7 @@ int main() {
   }
 
   {
-    // The write() methods on an object also returns a mutable reference.
+    // The write() method on a value also returns a mutable reference.
     auto w = o.write();
     w->name1 = "Annabel";
   }
@@ -101,8 +88,6 @@ int main() {
   {
     // An immutable reference has the type ref<const T>.
     // An immutable reference does not allow the value to be modified.
-    // It is analagous to const MyObject&w, and must be initialized with a
-    // value.
     ref<const MyObject> r1{o};
     ref<const int> r2{i};
 
@@ -119,7 +104,7 @@ int main() {
 
     // Mutable references are incompatible with immutable references, and
     // attempts to create a mutable reference whilst there are immutable
-    // references will throw exceptions.
+    // references will throw an exception.
     THROWS(o.write());
   }
 
@@ -208,7 +193,7 @@ int main() {
   // 3.3 References to elements
 
   // Unlike the standard containers, elements are accessed via the ref<> class
-  // This adds an additional level of safety.
+  // This makes the elements safe as well.
 
   {
     auto r = vec.read();
@@ -227,12 +212,12 @@ int main() {
     THROWS(vec.write());
     THROWS(vec.front());
 
-    // But you can request immutable reference:
+    // But you can have more than one immutable reference:
     vec.read().front();
   }
 
   {
-    // We can also create mutable references to elements
+    // We can create mutable references to elements
     vec.front() = 9;
     auto w = vec.write();
     w.front() = 10;
@@ -241,7 +226,7 @@ int main() {
 
     // But we cannot obtain a second mutable reference to an element, even if
     // it's a different element This prevents overlapping modification of
-    // elements of the same container
+    // elements of the same container.
     THROWS(w.back() = 12);
   }
 
@@ -252,7 +237,7 @@ int main() {
     std::cout << "The value is " << *i << std::endl;
   }
 
-  // You can of course iterate over references to the container
+  // You can iterate over references to the container
   for (ref<const int> i : vec.read()) {
     // ...
   }
@@ -264,11 +249,21 @@ int main() {
     THROWS(vec.push_back(*i));
   }
 
-  // Safe iterators prevent invalid dereferences, for example
-  THROWS(*vec.end());
+  // Iterator arithmetic is always checked
+  // and must result in a valid iterator.
 
-  // Safe iterators detect invalid iterator arithmetic.
-  THROWS(++vec.end());
+  {
+    vector<int>::iterator it1, it2 = vec.begin(), it3 = it2 + 2;
+
+    // Invalid iterator arithmetic
+    THROWS(it3 + 10);
+    THROWS(it3[10]);
+    THROWS(++vec.end());
+
+    // Invalid dereferences
+    THROWS(*it1); // Null iterator
+    THROWS(*vec.end());
+  }
 
   // 4. Pointers
 
@@ -284,9 +279,7 @@ int main() {
   // - pointers don't borrow the underlying value
   // Unlike C pointers,
   // - You cannot do pointer arithmetic (use iterators instead)
-  // - Pointers are initialized to null
-  // - Null pointers throw exceptions when dereferenced
-  // - Dangling pointers terminate the program
+  // - Safety from null, uninitialized, and dangling pointers
 
   // 4.1. Creating pointers.
 
@@ -294,21 +287,30 @@ int main() {
   ptr<int> p1;
 
   // Use the & operator to create a pointer from a value or reference
-  { auto p2 = &i; }
-  { ptr<const int> p3 = &i.read(); }
+  {
+    // Pointers don't borrow so you can have as many pointers as you like
+    ptr<int> p2 = &i;
+    ptr<const int> p3 = &i;
+    ptr<const int> p4 = &i.read();
+    p4 = p2;
+
+    *p2 = 13;
+    std::cout << *p4 << std::endl; // 13
+  }
+
   // Reassign a pointer to null
   p1 = nullptr;
-
-  //  p3 = p2;  // Assign a mutable to an immutable pointer
 
   // 4.2 Dereferencing pointers
 
   // The * operator turns a pointer back into a ref,
   // and is needed to access the underlying value.
+  // This borrows the value, so may throw exceptions.
 
   {
     ptr<int> p = &i;
     ref<int> r = *p;
+    THROWS(*p); // i is already borrowed
   }
 
   THROWS(*p1); // p1 is nullptr
@@ -330,17 +332,20 @@ int main() {
 
     TERMINATES(fn1());
 
-    // However, we can use a weak lifetime to get around this
+    // There are cases where we want to allow dangling pointers.
+    // In this case, we can use a weak lifetime, specified by the `weak` checks
+    // on `value`.
 
     auto fn2 = []() {
       value<int, weak> i;
       return &i;
     };
 
-    // This doesn't terminate because the pointer is in an "expired" state
+    // p is in an "expired" state since its pointee `i` was destroyed.
     ptr<int> p = fn2(); // No termination
 
-    // Defererencing the dangling pointer will still terminate
+    // Defererencing the expired pointer will throw the `expired_pointer`
+    // exception.
     THROWS(*p);
   }
 }

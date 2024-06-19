@@ -20,11 +20,15 @@ public:
   ptr(nullptr_t) : ptr() {}
   ptr(value_type &value, lifetime_type &life) : value(&value), life(life) {}
 
+  template <typename U>
+  ptr(const ptr<U, Mode> &other) : value(other.value), life(other.life) {}
+
   operator bool() const { return value; }
 
   ref<T, Mode> operator->() { return **this; }
 
 private:
+  template <typename U, typename M> friend class ptr;
   T *value;
   detail::optional_lifetime_ptr<Mode> life;
 };
