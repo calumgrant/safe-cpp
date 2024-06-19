@@ -14,7 +14,9 @@ template <> struct lifetime<unchecked> {
   void terminate_if_live() const {}
   void check_no_readers() const {}
 
-  lifetime &get_lifetime() { return *this; }
+  struct reference {};
+
+  reference get_lifetime() { return {}; }
 };
 
 template <> struct lifetime<checked> {
@@ -41,7 +43,9 @@ template <> struct lifetime<checked> {
       std::terminate();
   }
 
-  lifetime<checked> &get_lifetime() { return *this; }
+  using reference = lifetime<checked> &;
+
+  reference get_lifetime() { return *this; }
 };
 
 template <typename Mode> class lifetime_ref;
@@ -76,10 +80,7 @@ template <> struct lifetime<checked_weak> {
 template <> class lifetime_ref<unchecked> {
 public:
   lifetime_ref() {}
-  detail::lifetime<unchecked> &lifetime() const { return life; }
-
-private:
-  mutable detail::lifetime<unchecked> life;
+  detail::lifetime<unchecked>::reference lifetime() const { return {}; }
 };
 
 template <typename Mode> class optional_lifetime_ptr;
@@ -87,13 +88,10 @@ template <typename Mode> class optional_lifetime_ptr;
 template <> class optional_lifetime_ptr<unchecked> {
 public:
   optional_lifetime_ptr() = default;
-  optional_lifetime_ptr(lifetime<unchecked> &life) {}
+  optional_lifetime_ptr(lifetime<unchecked>::reference life) {}
 
   bool is_live() const { return true; }
-  detail::lifetime<unchecked> &lifetime() const { return life; }
-
-private:
-  mutable detail::lifetime<unchecked> life;
+  detail::lifetime<unchecked>::reference lifetime() const { return {}; }
 };
 
 template <> class optional_lifetime_ptr<checked> {

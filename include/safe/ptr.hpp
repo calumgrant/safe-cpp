@@ -18,7 +18,8 @@ public:
 
   ptr() : value{} {};
   ptr(nullptr_t) : ptr() {}
-  ptr(value_type &value, lifetime_type &life) : value(&value), life(life) {}
+  ptr(value_type &value, typename lifetime_type::reference life)
+      : value(&value), life(life) {}
 
   template <typename U>
   ptr(const ptr<U, Mode> &other) : value(other.value), life(other.life) {}

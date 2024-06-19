@@ -15,6 +15,7 @@ struct iterator_checks {
                         const typename Container::const_iterator &it) {}
   static void check_dec(const Container &container,
                         const typename Container::const_iterator &it) {}
+  static void check_size(const Container &container, size_t i) {}
 };
 
 template <typename Container, typename IteratorCategory>
@@ -27,6 +28,7 @@ struct iterator_checks<Container, unchecked, IteratorCategory> {
                         const typename Container::const_iterator &it) {}
   static void check_range(const Container &container,
                           const typename Container::const_iterator &it) {}
+  static void check_size(const Container &container, size_t i) {}
 };
 
 template <typename Container, typename IteratorCategory>
@@ -41,6 +43,10 @@ struct iterator_checks<Container, checked, IteratorCategory> {
   static void check_dec(const Container &container,
                         const typename Container::const_iterator &it) {
     if (it == container.begin())
+      throw std::out_of_range("out of range");
+  }
+  static void check_size(const Container &container, size_t i) {
+    if (i >= container.size())
       throw std::out_of_range("out of range");
   }
 };
@@ -64,6 +70,11 @@ struct iterator_checks<Container, checked, std::random_access_iterator_tag> {
     if (it < container.begin() || it > container.end())
       throw std::out_of_range("out of range");
   }
+
+  static void check_size(const Container &container, size_t i) {
+    if (i >= container.size())
+      throw std::out_of_range("out of range");
+  }
 };
 
 template <typename C, typename Mode> class container_impl {
@@ -74,12 +85,13 @@ public:
   using lifetime_type = detail::lifetime<Mode>;
   using checks = iterator_checks<C, Mode>;
 
-  template <typename It, typename ContainerRef, typename ValueRef>
+  template <typename It, typename ContainerRef, typename ValueRef, typename>
   class iterator_impl {
   public:
     iterator_impl() : it{}, container{} {}
 
-    iterator_impl(It it, ContainerRef container, lifetime_type &lifetime)
+    iterator_impl(It it, ContainerRef container,
+                  typename lifetime_type::reference lifetime)
         : it(it), container(container), container_lock(lifetime) {}
 
     // ValueRef read() const {
@@ -136,21 +148,47 @@ public:
     detail::optional_lock<shared_read, Mode> container_lock;
   };
 
+  template <typename It, typename ContainerRef, typename ValueRef>
+  class iterator_impl<It, ContainerRef, ValueRef, unchecked> {
+  public:
+    iterator_impl() {}
+
+    iterator_impl(It it) : it(it) {}
+
+    iterator_impl(It it, ContainerRef container,
+                  typename lifetime_type::reference lifetime)
+        : it(it) {}
+
+    ValueRef operator*() const { return {*it, {}}; }
+    ValueRef operator[](int i) const { return {it[i], {}}; }
+    iterator_impl &operator++() {
+      ++it;
+      return *this;
+    }
+
+    iterator_impl operator+(int i) const { return {it + i}; }
+
+    bool operator!=(const iterator_impl &other) const { return it != other.it; }
+
+  private:
+    It it;
+  };
+
 public:
   using iterator = iterator_impl<typename C::iterator, container_impl *,
-                                 safe::ref<value_type, Mode>>;
+                                 safe::ref<value_type, Mode>, Mode>;
   using const_iterator =
       iterator_impl<typename C::const_iterator, const container_impl *,
-                    safe::ref<const value_type, Mode>>;
+                    safe::ref<const value_type, Mode>, Mode>;
 
   // Accessors
   iterator begin() { return {container.begin(), this, container_access}; }
   iterator end() { return {container.end(), this, container_access}; }
   const_iterator begin() const {
-    return {container.begin(), this, container_access};
+    return {container.begin(), this, container_access.get_lifetime()};
   }
   const_iterator end() const {
-    return {container.end(), this, container_access};
+    return {container.end(), this, container_access.get_lifetime()};
   }
 
   // Operations
@@ -174,34 +212,35 @@ public:
 
   container_impl(std::initializer_list<value_type> il) : container(il) {}
 
-  auto &lifetime() const { return container_access; }
-  auto &element_lifetime() const { return element_access; }
+  typename lifetime_type::reference lifetime() const {
+    return container_access.get_lifetime();
+  }
+  typename lifetime_type::reference element_lifetime() const {
+    return element_access.get_lifetime();
+  }
   size_type size() const { return container.size(); }
   void resize(size_type s) { return container.resize(s); }
   void clear() { container.clear(); }
 
   safe::ref<value_type, Mode> operator[](size_type i) {
-    if (i >= container.size())
-      throw std::out_of_range("out of range");
-    return {container[i], element_access};
+    checks::check_size(container, i);
+    return {container[i], element_access.get_lifetime()};
   }
 
   safe::ref<const value_type, Mode> operator[](size_type i) const {
-    if (i >= container.size())
-      throw std::out_of_range("out of range");
-    return {container[i], element_access};
+    checks::check_size(container, i);
+    return {container[i], element_access.get_lifetime()};
   }
 
   safe::ref<value_type, Mode> at(size_type i) {
-    if (i >= container.size())
-      throw std::out_of_range("out of range");
-    return {container[i], element_access};
+    checks::check_size(container, i);
+    return {container.at(i), element_access};
   }
 
   safe::ref<const value_type, Mode> at(size_type i) const {
     if (i >= container.size())
       throw std::out_of_range("out of range");
-    return {container[i], element_access};
+    return {container[i], element_access.get_lifetime()};
   }
 
   ref<value_type, Mode> front() const {
@@ -239,7 +278,8 @@ public:
   ref(const container_type &c) : ref(c.read()) {}
   // value(c.value), life(c.value.lifetime()) {}
 
-  ref(const impl_type &value, lifetime_type &life) : value(value), life(life) {}
+  ref(const impl_type &value, typename lifetime_type::reference life)
+      : value(value), life(life) {}
 
   ref(const ref &other) : value(other.value), life(other.life.lifetime()) {}
 
@@ -267,10 +307,8 @@ public:
   iterator begin() const { return value.begin(); }
   iterator end() const { return value.end(); }
 
-  const value_type &operator[](size_type i) const { return value.at(i); }
-  ref<const value_type, Mode> at(size_type i) const {
-    return {value.container.at(i), value.element_lifetime()};
-  }
+  const value_type &operator[](size_type i) const { return value[i]; }
+  ref<const value_type, Mode> at(size_type i) const { return value.at(i); }
 
   size_type size() const { return value.size(); }
 
@@ -286,10 +324,11 @@ public:
   using value_type = typename C::value_type;
   using lifetime_type = detail::lifetime<Mode>;
 
-  ref(container<C, Mode> &c, lifetime_type &life)
+  ref(container<C, Mode> &c, typename lifetime_type::reference life)
       : value(c.value), life(life) {}
 
-  ref(container_type &value, lifetime_type &life) : value(value), life(life) {}
+  ref(container_type &value, typename lifetime_type::reference life)
+      : value(value), life(life) {}
   ref(container<C, Mode> &src) : ref(src.write()) {}
   ref(const ref &other) : value(other.value), life(other.reader) {}
   // mut(object<value_type,Mode>&obj) : mut(obj.unsafe_read(), obj.lifetime())
@@ -297,13 +336,19 @@ public:
 
   // Make private??
   // ?? excl()
-  ref<const container<C>, Mode> read() const { return {value, reader}; }
+  ref<const container<C>, Mode> read() const {
+    return {value, reader.get_lifetime()};
+  }
 
 private:
-  exclusive<container_type, Mode> write() const { return {value, reader}; }
+  exclusive<container_type, Mode> write() const {
+    return {value, reader.get_lifetime()};
+  }
 
 public:
-  detail::lifetime<Mode> &lifetime() const { return life.lifetime(); }
+  typename detail::lifetime<Mode>::reference lifetime() const {
+    return life.lifetime();
+  }
 
   using iterator = typename container_type::iterator;
   using const_iterator = typename container_type::const_iterator;
@@ -313,9 +358,7 @@ public:
   iterator end() { return {value.container.end(), &value, reader}; }
   size_type size() { return value.size(); }
 
-  ref<value_type, Mode> operator[](size_type i) const {
-    return {value.container.at(i), value.element_lifetime()};
-  }
+  ref<value_type, Mode> operator[](size_type i) const { return value[i]; }
   ref<value_type, Mode> at(size_type i) const {
     return {value.container.at(i), value.element_lifetime()};
   }
@@ -414,10 +457,10 @@ public:
   // Note: All of these accessors and operations must
   // go via read() or write() to validate access
 
-  ref<value_type, Mode> operator[](size_type i) { return write().at(i); }
+  ref<value_type, Mode> operator[](size_type i) { return write()[i]; }
 
   ref<const value_type, Mode> operator[](size_type i) const {
-    return read().at(i);
+    return read()[i];
   }
 
   ref<value_type, Mode> front() { return write().front(); }
@@ -457,7 +500,7 @@ public:
     write().emplace_back(std::forward<Args>(args)...);
   }
 
-  detail::lifetime<Mode> &element_lifetime() const {
+  typename detail::lifetime<Mode>::reference element_lifetime() const {
     return value.element_lifetime();
   }
 

@@ -8,12 +8,9 @@ struct move_tag {};
 
 template <typename Op> class lock<Op, unchecked> {
 public:
-  lock(detail::lifetime<unchecked> &) {}
-  lock(detail::lifetime<unchecked> &, move_tag) {}
-  detail::lifetime<unchecked> &lifetime() const { return life; }
-
-private:
-  mutable detail::lifetime<unchecked> life;
+  lock(detail::lifetime<unchecked>::reference) {}
+  lock(detail::lifetime<unchecked>::reference, move_tag) {}
+  detail::lifetime<unchecked>::reference lifetime() const { return {}; }
 };
 
 template <typename Op> class lock<Op, checked> {
@@ -41,11 +38,8 @@ template <typename Op, typename Mode> class optional_lock;
 template <typename Op> class optional_lock<Op, unchecked> {
 public:
   optional_lock() = default;
-  optional_lock(lifetime<unchecked> &) {}
-  detail::lifetime<unchecked> &lifetime() const { return life; }
-
-private:
-  mutable detail::lifetime<unchecked> life;
+  optional_lock(lifetime<unchecked>::reference) {}
+  detail::lifetime<unchecked>::reference lifetime() const { return {}; }
 };
 
 template <typename Op> class optional_lock<Op, checked> {

@@ -1,4 +1,4 @@
-#include <iostream>
+#include <cassert>
 
 template <typename Ex = std::exception, typename Fn> void throws(Fn f) {
   try {
@@ -6,8 +6,7 @@ template <typename Ex = std::exception, typename Fn> void throws(Fn f) {
   } catch (const Ex &e) {
     return;
   }
-  std::cerr << "Expected exception not thrown" << std::endl;
-  exit(1);
+  assert(!"Expected exception not thrown");
 }
 
 #define THROWS(X) throws([&]() { X; });

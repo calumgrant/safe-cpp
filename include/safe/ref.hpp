@@ -13,7 +13,8 @@ public:
   exclusive(ref<T, Mode> &&src)
       : value(*src), life(src.lifetime(), detail::move_tag()) {}
 
-  exclusive(value_type &t, lifetime_type &life) : value(t), life(life) {}
+  exclusive(value_type &t, typename lifetime_type::reference life)
+      : value(t), life(life) {}
 
   value_type &operator*() const { return value; }
   value_type *operator->() const { return &value; }
@@ -36,7 +37,8 @@ public:
   using value_type = T;
   using lifetime_type = detail::lifetime<Mode>;
 
-  ref(value_type &value, lifetime_type &life) : value(value), life(life) {}
+  ref(value_type &value, typename lifetime_type::reference life)
+      : value(value), life(life) {}
 
   template <typename U>
   ref(ref<U, Mode> &&src)
@@ -49,19 +51,21 @@ public:
   template <typename U>
   ref(const ref<U, Mode> &src) : value(src.value), life(src.lifetime()) {}
 
-  ref(const ref &src) : value(src.value), life(src.reader) {}
+  ref(const ref &src) : value(src.value), life(src.reader.get_lifetime()) {}
 
   ref(value<T, Mode> &src) : ref(src.write()) {}
 
-  lifetime_type &lifetime() const { return life.lifetime(); }  // ??
+  typename lifetime_type::reference lifetime() const {
+    return life.lifetime();
+  } // ??
 
   // Make private??
-  ref<const T, Mode> read() const { return {value, reader}; }
+  ref<const T, Mode> read() const { return {value, reader.get_lifetime()}; }
   ref<T, Mode> write() const { return {value, reader}; }
 
-  exclusive<T, Mode> operator->() { return {value, reader}; }
+  exclusive<T, Mode> operator->() { return {value, reader.get_lifetime()}; }
 
-  exclusive<T, Mode> operator*() { return {value, reader}; }
+  exclusive<T, Mode> operator*() { return {value, reader.get_lifetime()}; }
 
   // Generally a bad idea
   // ptr<T, Mode> operator&() const { return {value, reader}; }
@@ -93,7 +97,7 @@ public:
   using value_type = T;
   using lifetime_type = detail::lifetime<Mode>;
 
-  ref(const value_type &value, lifetime_type &life)
+  ref(const value_type &value, typename lifetime_type::reference life)
       : value(value), life(life) {}
 
   ref(const ref &other) : value(other.value), life(other.lifetime()) {}
@@ -112,7 +116,7 @@ public:
 
   operator const value_type &() const { return value; }
 
-  lifetime_type &lifetime() const { return life.lifetime(); }
+  typename lifetime_type::reference lifetime() const { return life.lifetime(); }
 
 private:
   const value_type &value;
