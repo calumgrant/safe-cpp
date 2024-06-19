@@ -63,7 +63,8 @@ public:
 
   exclusive<T, Mode> operator*() { return {value, reader}; }
 
-  ptr<T, Mode> operator&() const { return {value, reader}; }
+  // Generally a bad idea
+  // ptr<T, Mode> operator&() const { return {value, reader}; }
 
   ref &operator=(const ref &other) {
     value = other.value;

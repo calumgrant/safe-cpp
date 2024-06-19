@@ -64,7 +64,7 @@ protected:
   detail::lifetime<checked> *life;
 };
 
-template <> struct lifetime<weak> {
+template <> struct lifetime<checked_weak> {
   lifetime() {}
   ~lifetime() { get_lifetime().is_live = false; }
 
@@ -83,6 +83,18 @@ private:
 };
 
 template <typename Mode> class optional_lifetime_ptr;
+
+template <> class optional_lifetime_ptr<unchecked> {
+public:
+  optional_lifetime_ptr() = default;
+  optional_lifetime_ptr(lifetime<unchecked> &life) {}
+
+  bool is_live() const { return true; }
+  detail::lifetime<unchecked> &lifetime() const { return life; }
+
+private:
+  mutable detail::lifetime<unchecked> life;
+};
 
 template <> class optional_lifetime_ptr<checked> {
 public:

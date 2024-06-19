@@ -8,13 +8,13 @@ namespace safe
 {
     struct checked;
     struct unchecked;
-    struct checked_shared;
+    struct checked_weak;
 
     namespace enabled
     {
         using mode = checked;  // Remove!!
         using strong = checked;
-        using weak = checked_shared;
+        using weak = checked_weak;
     }
 
     namespace disabled

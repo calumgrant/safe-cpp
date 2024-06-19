@@ -40,7 +40,12 @@ template <typename Op, typename Mode> class optional_lock;
 
 template <typename Op> class optional_lock<Op, unchecked> {
 public:
+  optional_lock() = default;
   optional_lock(lifetime<unchecked> &) {}
+  detail::lifetime<unchecked> &lifetime() const { return life; }
+
+private:
+  mutable detail::lifetime<unchecked> life;
 };
 
 template <typename Op> class optional_lock<Op, checked> {

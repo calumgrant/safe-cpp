@@ -10,34 +10,36 @@ template <typename Container, typename Mode,
               typename Container::const_iterator::iterator_category>
 struct iterator_checks {
   static void check_deref(const Container &container,
-                   const typename Container::const_iterator &it)  {}
+                          const typename Container::const_iterator &it) {}
   static void check_inc(const Container &container,
-                 const typename Container::const_iterator &it)  {}
+                        const typename Container::const_iterator &it) {}
   static void check_dec(const Container &container,
-                 const typename Container::const_iterator &it)  {}
+                        const typename Container::const_iterator &it) {}
 };
 
 template <typename Container, typename IteratorCategory>
 struct iterator_checks<Container, unchecked, IteratorCategory> {
   static void check_deref(const Container &container,
-                   const typename Container::const_iterator &it)  {}
+                          const typename Container::const_iterator &it) {}
   static void check_inc(const Container &container,
-                 const typename Container::const_iterator &it)  {}
+                        const typename Container::const_iterator &it) {}
   static void check_dec(const Container &container,
-                 const typename Container::const_iterator &it)  {}
+                        const typename Container::const_iterator &it) {}
+  static void check_range(const Container &container,
+                          const typename Container::const_iterator &it) {}
 };
 
 template <typename Container, typename IteratorCategory>
 struct iterator_checks<Container, checked, IteratorCategory> {
   static void check_deref(const Container &container,
-                   const typename Container::const_iterator &it)  {}
+                          const typename Container::const_iterator &it) {}
   static void check_inc(const Container &container,
-                 const typename Container::const_iterator &it)  {
+                        const typename Container::const_iterator &it) {
     if (it == container.end())
       throw std::out_of_range("out of range");
   }
   static void check_dec(const Container &container,
-                 const typename Container::const_iterator &it)  {
+                        const typename Container::const_iterator &it) {
     if (it == container.begin())
       throw std::out_of_range("out of range");
   }
@@ -45,12 +47,14 @@ struct iterator_checks<Container, checked, IteratorCategory> {
 
 template <typename Container>
 struct iterator_checks<Container, checked, std::random_access_iterator_tag> {
-  static void check_deref(const Container &container, const typename Container::const_iterator &it)  {
+  static void check_deref(const Container &container,
+                          const typename Container::const_iterator &it) {
     if (it < container.begin() || it >= container.end())
       throw std::out_of_range("out of range");
   }
 
-  static void check_inc(const Container & container, const typename Container::const_iterator &it)  {
+  static void check_inc(const Container &container,
+                        const typename Container::const_iterator &it) {
     if (it == container.end())
       throw std::out_of_range("out of range");
   }
@@ -159,13 +163,14 @@ public:
   }
 
   template <typename... Args>
-  container_impl(Args &&...args) : container(std::forward<Args&&>(args)...) {}
+  container_impl(Args &&...args) : container(std::forward<Args &&>(args)...) {}
 
   container_impl(const container_impl &other) : container(other.container) {}
 
   container_impl(container_impl &other) : container(other.container) {}
 
-  container_impl(container_impl &&other) : container(std::move(other.container)) {}
+  container_impl(container_impl &&other)
+      : container(std::move(other.container)) {}
 
   container_impl(std::initializer_list<value_type> il) : container(il) {}
 
@@ -199,18 +204,17 @@ public:
     return {container[i], element_access};
   }
 
-  ref<value_type, Mode> front() const { 
-    if(container.size() == 0)
+  ref<value_type, Mode> front() const {
+    if (container.size() == 0)
       throw std::out_of_range("empty container");
     return {container.front(), element_access};
   }
 
-  ref<value_type, Mode> back() const { 
-    if(container.size() == 0)
+  ref<value_type, Mode> back() const {
+    if (container.size() == 0)
       throw std::out_of_range("empty container");
     return {container.back(), element_access};
   }
-
 
   // !!!!!!!
   // private:
@@ -235,28 +239,27 @@ public:
   ref(const container_type &c) : ref(c.read()) {}
   // value(c.value), life(c.value.lifetime()) {}
 
-  ref(const impl_type &value, lifetime_type &life)
-      : value(value), life(life) {}
+  ref(const impl_type &value, lifetime_type &life) : value(value), life(life) {}
 
   ref(const ref &other) : value(other.value), life(other.life.lifetime()) {}
 
   ref(ref<container_type, Mode> &&other)
       : value(other.value), life(other.lifetime(), detail::move_tag{}) {}
 
-  //const container_type &operator*() const { return value; }
+  // const container_type &operator*() const { return value; }
 
-  //const container_type *operator->() const { return &value; }
+  // const container_type *operator->() const { return &value; }
 
   // operator const container_type &() const { return operator*(); }
 
-  ref<const value_type, Mode> front() const { 
-    if(value.container.size() == 0)
+  ref<const value_type, Mode> front() const {
+    if (value.container.size() == 0)
       throw std::out_of_range("empty container");
     return {value.container.front(), value.element_lifetime()};
   }
 
-  ref<const value_type, Mode> back() const { 
-    if(value.container.size() == 0)
+  ref<const value_type, Mode> back() const {
+    if (value.container.size() == 0)
       throw std::out_of_range("empty container");
     return {value.container.back(), value.element_lifetime()};
   }
@@ -265,7 +268,9 @@ public:
   iterator end() const { return value.end(); }
 
   const value_type &operator[](size_type i) const { return value.at(i); }
-  ref<const value_type, Mode> at(size_type i) const { return {value.container.at(i), value.element_lifetime()}; }
+  ref<const value_type, Mode> at(size_type i) const {
+    return {value.container.at(i), value.element_lifetime()};
+  }
 
   size_type size() const { return value.size(); }
 
@@ -281,10 +286,10 @@ public:
   using value_type = typename C::value_type;
   using lifetime_type = detail::lifetime<Mode>;
 
-  ref(container<C,Mode> &c, lifetime_type &life) : value(c.value), life(life) {}
+  ref(container<C, Mode> &c, lifetime_type &life)
+      : value(c.value), life(life) {}
 
-  ref(container_type &value, lifetime_type &life)
-      : value(value), life(life) {}
+  ref(container_type &value, lifetime_type &life) : value(value), life(life) {}
   ref(container<C, Mode> &src) : ref(src.write()) {}
   ref(const ref &other) : value(other.value), life(other.reader) {}
   // mut(object<value_type,Mode>&obj) : mut(obj.unsafe_read(), obj.lifetime())
@@ -293,10 +298,11 @@ public:
   // Make private??
   // ?? excl()
   ref<const container<C>, Mode> read() const { return {value, reader}; }
+
 private:
   exclusive<container_type, Mode> write() const { return {value, reader}; }
-public:
 
+public:
   detail::lifetime<Mode> &lifetime() const { return life.lifetime(); }
 
   using iterator = typename container_type::iterator;
@@ -307,20 +313,23 @@ public:
   iterator end() { return {value.container.end(), &value, reader}; }
   size_type size() { return value.size(); }
 
-  ref<value_type, Mode> operator[](size_type i) const { return {value.container.at(i), value.element_lifetime()}; }
-  ref<value_type, Mode> at(size_type i) const { return {value.container.at(i), value.element_lifetime()}; }
-  ref<value_type, Mode> front() const { 
-    if(value.container.size() == 0)
+  ref<value_type, Mode> operator[](size_type i) const {
+    return {value.container.at(i), value.element_lifetime()};
+  }
+  ref<value_type, Mode> at(size_type i) const {
+    return {value.container.at(i), value.element_lifetime()};
+  }
+  ref<value_type, Mode> front() const {
+    if (value.container.size() == 0)
       throw std::out_of_range("empty container");
     return {value.container.front(), value.element_lifetime()};
   }
 
-  ref<value_type, Mode> back() const { 
-    if(value.container.size() == 0)
+  ref<value_type, Mode> back() const {
+    if (value.container.size() == 0)
       throw std::out_of_range("empty container");
     return {value.container.back(), value.element_lifetime()};
   }
-
 
   size_type size() const { return read().size(); }
   void resize(size_type s) { write()->resize(s); }
@@ -346,34 +355,33 @@ public:
   using value_type = typename C::value_type;
 
   template <typename... Args>
-  container(Args &&...args) : value(std::forward<Args&&>(args)...) {}
+  container(Args &&...args) : value(std::forward<Args &&>(args)...) {}
 
   container(std::initializer_list<value_type> il) : value(il) {}
 
-  container(const container<C,Mode> &other) : value(other.value) {}
+  container(const container<C, Mode> &other) : value(other.value) {}
 
-  container(container<C,Mode> &other) : value(other.value) {}
+  container(container<C, Mode> &other) : value(other.value) {}
 
-  container(container<C,Mode> &&other) : value(std::move(other.value)) {}
+  container(container<C, Mode> &&other) : value(std::move(other.value)) {}
 
-  container & operator=(const container<C,Mode> &other) {
+  container &operator=(const container<C, Mode> &other) {
     value = other.value;
     return *this;
   }
 
-  container & operator=(container<C,Mode> &&other) {
+  container &operator=(container<C, Mode> &&other) {
     value.container = std::move(other.value.container);
     return *this;
   }
 
-  container & operator=(container<C,Mode> &other) {
+  container &operator=(container<C, Mode> &other) {
     value.container = other.value.container;
     return *this;
   }
 
-  template <typename Args>
-  container & operator=(Args &&args) {
-    value.container = std::forward<Args&&>(args);
+  template <typename Args> container &operator=(Args &&args) {
+    value.container = std::forward<Args &&>(args);
     return *this;
   }
 
@@ -390,10 +398,13 @@ public:
   }
 
   // !! I think this is a terrible idea !!
-  // exclusive<const C, Mode> operator->() const { return {value.container, value.lifetime()}; }
+  // exclusive<const C, Mode> operator->() const { return {value.container,
+  // value.lifetime()}; }
 
   // !! Only for strings!
-  exclusive<const std::string, Mode> operator*() const { return {value.container, value.lifetime()}; }
+  exclusive<const std::string, Mode> operator*() const {
+    return {value.container, value.lifetime()};
+  }
 
   // This is not iterable??
   using iterator = typename container_type::iterator;
@@ -415,17 +426,22 @@ public:
   ref<value_type, Mode> back() { return write().back(); }
   ref<const value_type, Mode> back() const { return read().back(); }
 
-
-  iterator begin() { return {value.container.begin(), &value, value.lifetime()}; }
+  iterator begin() {
+    return {value.container.begin(), &value, value.lifetime()};
+  }
   iterator end() { return {value.container.end(), &value, value.lifetime()}; }
 
-  const_iterator begin() const { return {value.container.begin(), &value, value.lifetime()}; }
-  const_iterator end() const { return {value.container.end(), &value, value.lifetime()}; }
+  const_iterator begin() const {
+    return {value.container.begin(), &value, value.lifetime()};
+  }
+  const_iterator end() const {
+    return {value.container.end(), &value, value.lifetime()};
+  }
 
   ref<value_type, Mode> at(size_type i) { return write().at(i); }
 
   ref<const value_type, Mode> at(size_type i) const {
-    return {value.at(i), element_lifetime()};  // !! Does this prevent writing??
+    return {value.at(i), element_lifetime()}; // !! Does this prevent writing??
   }
 
   size_type size() const { return read().size(); }
@@ -441,7 +457,9 @@ public:
     write().emplace_back(std::forward<Args>(args)...);
   }
 
-  detail::lifetime<Mode> & element_lifetime() const { return value.element_lifetime(); }
+  detail::lifetime<Mode> &element_lifetime() const {
+    return value.element_lifetime();
+  }
 
 private:
   container_type value;
