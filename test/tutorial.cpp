@@ -280,7 +280,8 @@ int main() {
   //
   // Unlike references:
   // - pointers can be null
-  // - pointers can be reassigned.
+  // - pointers can be reassigned
+  // - pointers don't borrow the underlying value
   // Unlike C pointers,
   // - You cannot do pointer arithmetic (use iterators instead)
   // - Pointers are initialized to null
@@ -328,5 +329,18 @@ int main() {
     };
 
     TERMINATES(fn1());
+
+    // However, we can use a weak lifetime to get around this
+
+    auto fn2 = []() {
+      value<int, weak> i;
+      return &i;
+    };
+
+    // This doesn't terminate because the pointer is in an "expired" state
+    ptr<int> p = fn2(); // No termination
+
+    // Defererencing the dangling pointer will still terminate
+    THROWS(*p);
   }
 }

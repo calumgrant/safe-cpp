@@ -409,15 +409,42 @@ int main() {
     fn(str.write().read());
   }
 
+  // Pointer scopes
+  {
+    ptr<int> p;
+    value<int> a = 42;
+    p = &a;
+    assert(**p == 42);
+    p = nullptr;
+
+    // Should terminate?
+  }
+
   // Weak references
 
   {
     value<int, weak> a;
     a.read();
     a.write();
-    // !! Bug: pointers shouldn't borrow
     auto p1 = &a;
     a.write();
+  }
+
+  // Expired pointer
+  {
+    ptr<int> p;
+
+    {
+      value<int, weak> a = 42;
+      p = &a;
+    }
+
+    try {
+      *p;
+      assert(!"Should not get here");
+    } catch (const expired_pointer &) {
+      // Expected
+    }
   }
   return 0;
 }

@@ -35,17 +35,13 @@ template <> struct lifetime<checked> {
     }
   }
 
-  ~lifetime() { terminate_if_live(); }
+  ~lifetime() {
+    terminate_if_live();
+    if (weak_count > 1)
+      std::terminate();
+  }
 
   lifetime<checked> &get_lifetime() { return *this; }
-};
-
-template <> struct lifetime<weak> {
-  lifetime() : life(new lifetime<checked>()) {}
-
-  lifetime<checked> *life;
-
-  lifetime<checked> &get_lifetime() { return *life; }
 };
 
 template <typename Mode> class lifetime_ref;
@@ -54,7 +50,6 @@ template <> class lifetime_ref<checked> {
 public:
   lifetime_ref() : life(new detail::lifetime<checked>) {}
   lifetime_ref(lifetime<checked> &life) : life(&life) { life.weak_count++; }
-  lifetime_ref(lifetime<weak> &life) : life(life.life) {}
   ~lifetime_ref() {
     if (!--life->weak_count) {
       delete life;
@@ -67,6 +62,15 @@ protected:
   lifetime_ref(const lifetime_ref &other) = delete;
   lifetime_ref &operator=(const lifetime_ref &other) = delete;
   detail::lifetime<checked> *life;
+};
+
+template <> struct lifetime<weak> {
+  lifetime() {}
+  ~lifetime() { get_lifetime().is_live = false; }
+
+  lifetime_ref<checked> life;
+
+  lifetime<checked> &get_lifetime() { return life.lifetime(); }
 };
 
 template <> class lifetime_ref<unchecked> {
@@ -116,7 +120,7 @@ public:
 
   ~optional_lifetime_ptr() {
     if (life && !--life->weak_count) {
-      life->terminate_if_live();
+      // life->terminate_if_live();
       delete life;
     }
   }

@@ -31,4 +31,9 @@ public:
   null_pointer() : exception("null pointer") {}
 };
 
+class expired_pointer : public exception {
+public:
+  expired_pointer() : exception("expired pointer") {}
+};
+
 } // namespace safe

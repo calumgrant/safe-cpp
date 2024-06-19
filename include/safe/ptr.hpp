@@ -11,6 +11,8 @@ public:
   ref<T, Mode> operator*() const {
     if (!value)
       throw null_pointer();
+    if (!life.is_live())
+      throw expired_pointer();
     return {*value, life.lifetime()};
   }
 
