@@ -47,7 +47,7 @@ public:
   optional_lock() : lifetime_ptr(nullptr) {}
 
   // Change to lifetime<checked>& !!
-  optional_lock(lifetime<checked> &life) : lifetime_ptr(&life) {
+  optional_lock(detail::lifetime<checked> &life) : lifetime_ptr(&life) {
     Op::acquire(life);
   }
 
@@ -82,7 +82,7 @@ public:
       Op::release(*lifetime_ptr);
   }
 
-  lifetime<checked> &lifetime() const {
+  detail::lifetime<checked> &lifetime() const {
     if (!lifetime_ptr)
       throw invalid_operation<Op>();
     return *lifetime_ptr;

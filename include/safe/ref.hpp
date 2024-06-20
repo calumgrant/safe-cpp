@@ -53,7 +53,7 @@ public:
 
   ref(const ref &src) : value(src.value), life(src.reader.get_lifetime()) {}
 
-  ref(value<T, Mode> &src) : ref(src.write()) {}
+  ref(safe::value<T, Mode> &src) : ref(src.write()) {}
 
   typename lifetime_type::reference lifetime() const {
     return life.lifetime();

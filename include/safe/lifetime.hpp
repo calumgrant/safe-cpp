@@ -53,7 +53,9 @@ template <typename Mode> class lifetime_ref;
 template <> class lifetime_ref<checked> {
 public:
   lifetime_ref() : life(new detail::lifetime<checked>) {}
-  lifetime_ref(lifetime<checked> &life) : life(&life) { life.weak_count++; }
+  lifetime_ref(detail::lifetime<checked> &life) : life(&life) {
+    life.weak_count++;
+  }
   ~lifetime_ref() {
     if (!--life->weak_count) {
       delete life;
@@ -97,7 +99,7 @@ public:
 template <> class optional_lifetime_ptr<checked> {
 public:
   optional_lifetime_ptr() : life(nullptr) {}
-  optional_lifetime_ptr(lifetime<checked> &life) : life(&life) {
+  optional_lifetime_ptr(detail::lifetime<checked> &life) : life(&life) {
     life.weak_count++;
   }
   optional_lifetime_ptr(const optional_lifetime_ptr &other) : life(other.life) {
