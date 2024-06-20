@@ -112,7 +112,7 @@ public:
   const value_type &operator*() const { return value; }
   const value_type *operator->() const { return &value; }
 
-  ptr<const T, Mode> operator&() const { return {value, lifetime()}; }
+  // ptr<const T, Mode> operator&() const { return {value, lifetime()}; }
 
   operator const value_type &() const { return value; }
 

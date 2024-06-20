@@ -3,8 +3,8 @@
 // Safe C++ is a set of classes and idioms that allows you to write C++ code
 // that is "safe", meaning that there will be no undefined behaviour.
 
+#include "safe/safe.hpp"
 #include "safe/string.hpp"
-#include "safe/value.hpp"
 #include "safe/vector.hpp"
 
 #include "throws.hpp"
@@ -291,11 +291,10 @@ int main() {
     // Pointers don't borrow so you can have as many pointers as you like
     ptr<int> p2 = &i;
     ptr<const int> p3 = &i;
-    ptr<const int> p4 = &i.read();
-    p4 = p2;
+    p3 = p2;
 
     *p2 = 13;
-    std::cout << *p4 << std::endl; // 13
+    std::cout << *p3 << std::endl; // 13
   }
 
   // Reassign a pointer to null
