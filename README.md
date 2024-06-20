@@ -17,8 +17,3 @@ Safe C++ is a header-only library. Copy the `include` directory into your projec
 ## Getting started
 
 See [tutorial](tutorial.md) for a tutorial.
-
-See the [manual](reference.md) for a full guide to using the library.
-
-
-
